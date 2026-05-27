@@ -36,8 +36,19 @@ jobs:
         run: |
           python scripts/data_sha.py --input-dir data --sha-file .repo_state/data.sha256
 
-      - name: Guardar SHA en el repo
+      - name: Subida a Kaggle
+        id: upload
         if: steps.sha.outputs.changed == 'true'
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          python scripts/upload_kaggle.py \
+            --input-dir data \
+            --kaggle-id sociest/datos-abiertos-lapaz \
+            --version-message "Automatic Upload $(date -u +%Y-%m-%d)"
+
+      - name: Guardar SHA en el repo
+        if: ${{ steps.sha.outputs.changed == 'true' && steps.upload.outcome == 'success' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -53,13 +64,3 @@ jobs:
               echo "No remote configured; skipping git push (local run)."
             fi
           fi
-
-      - name: Subida a Kaggle
-        if: steps.sha.outputs.changed == 'true'
-        env:
-          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
-        run: |
-          python scripts/upload_kaggle.py \
-            --input-dir data \
-            --kaggle-id sociest/datos-abiertos-lapaz \
-            --version-message "Automatic Upload $(date -u +%Y-%m-%d)"
