@@ -1,0 +1,65 @@
+name: ETL Datos a Kaggle
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 1 1,4,7,10 *"
+
+jobs:
+  ejecutar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+
+      - name: Extracción
+        run: |
+          mkdir -p data data/datasets .repo_state output
+          cd notebooks && papermill extract.ipynb ../output/extract_ejecutada.ipynb
+
+      - name: Verificar cambios por SHA
+        id: sha
+        run: |
+          python scripts/data_sha.py --input-dir data --sha-file .repo_state/data.sha256
+
+      - name: Guardar SHA en el repo
+        if: steps.sha.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .repo_state/data.sha256
+          if git diff --cached --quiet; then
+            echo "No hay cambios para commitear."
+          else
+            git commit -m "chore: actualizar SHA de datos"
+            if git remote get-url origin >/dev/null 2>&1; then
+              echo "Remote 'origin' exists — pushing changes."
+              git push origin HEAD
+            else
+              echo "No remote configured; skipping git push (local run)."
+            fi
+          fi
+
+      - name: Subida a Kaggle
+        if: steps.sha.outputs.changed == 'true'
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          python scripts/upload_kaggle.py \
+            --input-dir data \
+            --kaggle-id sociest/datos-abiertos-lapaz \
+            --version-message "Automatic Upload $(date -u +%Y-%m-%d)"
