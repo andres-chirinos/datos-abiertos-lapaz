@@ -107,8 +107,8 @@ def publish(input_dir: Path, kaggle_id: str, version_message: str) -> None:
         import kagglehub
     except ImportError as exc:
         raise RuntimeError(
-            "Paquete 'kagglehub' no encontrado. "
-            "Instálalo con: pip install kagglehub"
+            "Fallo al importar 'kagglehub'. "
+            "Revisa que 'kagglesdk' sea compatible (por ejemplo, kagglesdk==0.1.23)."
         ) from exc
 
     print(f"Publicando dataset: {kaggle_id}")
